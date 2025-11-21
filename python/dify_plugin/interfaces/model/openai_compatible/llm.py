@@ -10,6 +10,7 @@ from urllib.parse import urljoin
 import requests
 from pydantic import TypeAdapter, ValidationError
 
+from dify_plugin.config.config import DifyPluginEnv
 from dify_plugin.entities import I18nObject
 from dify_plugin.entities.model import (
     AIModelEntity,
@@ -468,7 +469,13 @@ class OAICompatLargeLanguageModel(_CommonOaiApiCompat, LargeLanguageModel):
         if user:
             data["user"] = user
 
-        response = requests.post(endpoint_url, headers=headers, json=data, timeout=(10, 300), stream=stream)
+        response = requests.post(
+            endpoint_url,
+            headers=headers,
+            json=data,
+            timeout=(10, DifyPluginEnv.MAX_REQUEST_TIMEOUT),
+            stream=stream,
+        )
 
         if response.encoding is None or response.encoding == "ISO-8859-1":
             response.encoding = "utf-8"
