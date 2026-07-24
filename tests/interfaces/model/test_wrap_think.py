@@ -132,3 +132,35 @@ class TestWrapThinking(unittest.TestCase):
             full_output += output
 
         assert full_output == "<think>\nThinking.\n</think>Hello world."
+
+    def test_reasoning_key_fallback(self) -> None:
+        """Use reasoning when reasoning_content is absent."""
+        chunks = [
+            {"reasoning": "Using reasoning key.", "content": ""},
+            {"reasoning": None, "content": "Response text."},
+        ]
+
+        is_reasoning = False
+        full_output = ""
+        for chunk in chunks:
+            output, is_reasoning = self.llm._wrap_thinking_by_reasoning_content(
+                chunk, is_reasoning
+            )
+            full_output += output
+
+        assert full_output == "<think>\nUsing reasoning key.\n</think>Response text."
+
+    def test_reasoning_content_takes_precedence_over_reasoning(self) -> None:
+        """Prefer reasoning_content when both keys exist."""
+        chunk = {
+            "reasoning_content": "Primary.",
+            "reasoning": "Fallback.",
+            "content": "",
+        }
+        output, is_reasoning = self.llm._wrap_thinking_by_reasoning_content(
+            chunk, False
+        )
+
+        assert "Primary." in output
+        assert "Fallback." not in output
+        assert is_reasoning is True
