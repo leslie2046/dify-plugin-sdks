@@ -133,6 +133,56 @@ class TestWrapThinking(unittest.TestCase):
 
         assert full_output == "<think>\nThinking.\n</think>Hello world."
 
+    def test_empty_reasoning_closes_block(self) -> None:
+        output, is_reasoning = self.llm._wrap_thinking_by_reasoning_content(
+            {"reasoning_content": "A"},
+            False,
+        )
+        closing, is_reasoning = self.llm._wrap_thinking_by_reasoning_content(
+            {"reasoning_content": ""},
+            is_reasoning,
+        )
+
+        assert output + closing == "<think>\nA\n</think>"
+        assert is_reasoning is False
+
+    def test_empty_reasoning_closes_on_tool_transition(self) -> None:
+        for transition in (
+            {"tool_calls": [{"id": "call"}]},
+            {"function_call": {"name": "call"}},
+        ):
+            with self.subTest(transition=transition):
+                output, is_reasoning = self.llm._wrap_thinking_by_reasoning_content(
+                    {"reasoning_content": "A"},
+                    False,
+                )
+                closing, is_reasoning = self.llm._wrap_thinking_by_reasoning_content(
+                    {"reasoning_content": "", **transition},
+                    is_reasoning,
+                )
+
+                assert output + closing == "<think>\nA\n</think>"
+                assert is_reasoning is False
+
+    def test_reasoning_and_transition_in_same_chunk(self) -> None:
+        for already_started, opening in ((False, "<think>\n"), (True, "")):
+            for transition, suffix in (
+                ({"content": "Answer"}, "Answer"),
+                ({"tool_calls": [{"id": "call"}]}, ""),
+                ({"function_call": {"name": "call"}}, ""),
+            ):
+                with self.subTest(
+                    already_started=already_started,
+                    transition=transition,
+                ):
+                    output, is_reasoning = self.llm._wrap_thinking_by_reasoning_content(
+                        {"reasoning_content": "A", **transition},
+                        already_started,
+                    )
+
+                    assert output == f"{opening}A\n</think>{suffix}"
+                    assert is_reasoning is False
+
     def test_reasoning_key_fallback(self) -> None:
         """Use reasoning when reasoning_content is absent."""
         chunks = [
