@@ -1,96 +1,112 @@
 # Dify Plugin SDK
 
-A Python SDK for building plugins for Dify.
+The Python SDK for building Dify plugins: tools, model providers, agent strategies, HTTP extensions, datasources, and triggers.
 
-Here is a short introduction to Dify Plugin: <https://docs.dify.ai/plugins/introduction>
+[Plugin development guide](https://docs.dify.ai/en/develop-plugin/getting-started/getting-started-dify-plugin) · [Schema reference](https://langgenius.github.io/dify-plugin-sdks/schema/) · [Releases](https://github.com/langgenius/dify-plugin-sdks/releases)
+
+## Getting Started
+
+Python 3.12 or later is required.
+Install the SDK in your plugin's Python environment:
+
+```bash
+python -m pip install dify-plugin
+```
+
+The package name is `dify-plugin`; Python imports use `dify_plugin`.
+For a new plugin, use the [Dify Plugin CLI](https://docs.dify.ai/en/develop-plugin/getting-started/cli) to generate the project, then follow the guide to configure, run, and package it.
 
 ## Development
 
-This repository uses [`just`](https://github.com/casey/just) as its command runner.
-Install it with your preferred package manager, or with uv:
+Install [uv](https://docs.astral.sh/uv/) and [just](https://github.com/casey/just).
+You can install `just` with `uv tool install rust-just`.
+Run these commands from this repository:
 
 ```bash
-uv tool install rust-just
-```
-
-Common development commands:
-
-```bash
-just dev       # Sync default dev dependencies
-just fmt       # Apply formatting fixes
-just lint      # Format and apply lint fixes
-just check     # Check lockfile, formatting, and linting
+just dev       # Sync dependencies and install Git hooks
+just fmt       # Format code
+just lint      # Format code and apply lint fixes
+just check     # Check the lockfile, formatting, and linting
 just test      # Run SDK tests
 just build     # Build source and wheel distributions
 just docs      # Generate schema documentation
 ```
 
+CI tests Python 3.12 and 3.13.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup details, integration test requirements, and contribution guidelines.
+
 ## Production Plugin Examples
 
-See [`langgenius/dify-official-plugins`](https://github.com/langgenius/dify-official-plugins) for production plugin implementations that are published and used by Dify.
+See [langgenius/dify-official-plugins](https://github.com/langgenius/dify-official-plugins) for production plugin implementations published and used by Dify.
 
 ## LLM Polling Support
 
-SDK 0.9.0 adds support for polling-based LLM invocation. A model can now
-declare the `polling` feature and implement polling methods, allowing plugins
-to submit long-running provider jobs and return later checks through a short
-request/response flow.
+Since SDK 0.9.0, model plugins can declare the `polling` feature and implement `_start_polling()` and `_check_polling()` to handle long-running provider jobs through separate requests.
+Both methods return `LLMPollingResult` with one of three states:
 
-Polling results use three states:
-
-- `running` returns plugin-owned state for the next check.
-- `succeeded` returns the final LLM result.
-- `failed` returns a terminal error.
+- `running`: return `plugin_state` for the next check.
+- `succeeded`: return the final LLM `result`.
+- `failed`: return a terminal `error`.
 
 ## Version Management
 
-This SDK follows Semantic Versioning (a.b.c):
+SDK versions use `MAJOR.MINOR.PATCH`:
 
-- a: Major version - Indicates significant architectural changes or incompatible API modifications
-- b: Minor version - Indicates new feature additions while maintaining backward compatibility
-- c: Patch version - Indicates backward-compatible bug fixes
+- Major: incompatible API or architectural changes.
+- Minor: new features.
+- Patch: bug fixes.
+
+Before SDK 1.0, minor releases may include breaking changes.
+Review the [release notes](https://github.com/langgenius/dify-plugin-sdks/releases) before upgrading.
 
 ### For SDK Users
 
-When depending on this SDK, it's recommended to specify version constraints that:
-
-- Allow patch and minor updates for bug fixes and new features
-- Prevent major version updates to avoid breaking changes
-
-Example in your project's dependency management:
-
-```python
-dify_plugin >= 0.8
-```
+Constrain your SDK dependency to the minor version you have tested while allowing patch updates.
+For example, `dify-plugin~=0.10.2` allows patches in the 0.10 series.
+Review and test a new minor release before updating the constraint.
 
 ## Manifest Version Reference
 
-For the manifest specification, we've introduced two versioning fields:
+The SDK dependency version and your plugin's top-level `version` in `manifest.yaml` are separate from these compatibility fields:
 
-- `meta.version` - The version of the manifest specification, designed for backward compatibility. When installing an older plugin to a newer Dify, it's difficult to ensure breaking changes never occur, but at least Dify can detect them through this field. Once an unsupported version is detected, Dify will only use the supported parts of the plugin.
-- `meta.minimum_dify_version` - The minimum version of Dify, designed for forward compatibility. When installing a newer plugin to an older Dify, many new features may not be available, but showing the minimum Dify version helps users understand how to upgrade.
+- `meta.version`: the manifest schema version, used by Dify to determine supported plugin capabilities.
+- `meta.minimum_dify_version`: the earliest Dify version your plugin supports.
+
+Set `meta.minimum_dify_version` for the features your plugin uses and test against that version.
+Feature availability depends on the SDK, Dify, and the plugin daemon.
+See the [manifest schema](https://langgenius.github.io/dify-plugin-sdks/schema/#manifest) for field definitions.
 
 ### Meta.Version Reference
 
-| Manifest Version | Description                                                                                                                                                                                                                   |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.0.2            | As `ToolProviderType` now supports `mcp`, an elder implementation is going to broken when user selected a `mcp` tool in Dify, so we bump it to 0.0.2 to ensure Dify knows that `mcp` is disabled if meta.version under 0.0.2. |
-| 0.0.1            | Initial release                                                                                                                                                                                                               |
+| Manifest Version | Description |
+| --- | --- |
+| 0.0.2 | Adds the `mcp` tool provider type; use this schema version for plugins that accept MCP tools. |
+| 0.0.1 | Initial manifest specification. |
 
 ### Meta.MinimumDifyVersion Reference
 
-| Minimum Dify Version | SDK Version   | Description                                        |
-| -------------------- | ------------- | -------------------------------------------------- |
-| 1.2.0                | 0.2.0         | Support fetching application info                  |
-| 1.4.0                | 0.0.1-beta.49 | Support LLM multimodal output                      |
-| 1.4.0                | 0.3.1         | Support OAuth functionality for plugins            |
-| 1.5.1                | 0.4.0         | Support `dynamic-select` parameter type            |
-| 1.5.1                | 0.4.0         | Support LLM structured output                      |
-| 1.6.0                | 0.4.1         | Support `dark-icon` field in manifest              |
-| 1.7.0                | 0.4.2         | Support OAuth functionality for plugins            |
-| 1.8.1                | 0.4.4         | Support filename in MultiModalPromptMessageContent |
-| 1.9.0                | 0.5.0         | Support Datasource functionality for plugins       |
-| 1.10.0               | 0.6.0         | Support Trigger functionality for plugins          |
-| 1.11.0               | 0.7.0         | Support Multimodal Reranking / Embeddings          |
-| 1.14.0               | 0.8.1         | Dependency and project structure cleanup           |
-| 1.14.2               | 0.9.0         | Support polling-based LLM plugin invocations       |
+Minimum versions apply to the listed features.
+
+| Minimum Dify Version | SDK Version | Description |
+| --- | --- | --- |
+| 1.2.0 | 0.2.0 | Fetch application information. |
+| 1.4.0 | 0.0.1-beta.49 | LLM multimodal output. |
+| 1.4.0 | 0.3.1 | OAuth authorization URL and credential retrieval. |
+| 1.5.1 | 0.4.0 | `dynamic-select` parameters. |
+| 1.5.1 | 0.4.0 | LLM structured output. |
+| 1.6.0 | 0.4.1 | `icon_dark` field in the manifest. |
+| 1.7.0 | 0.4.2 | Tool OAuth. |
+| 1.8.1 | 0.4.4 | Filename in `MultiModalPromptMessageContent`. |
+| 1.9.0 | 0.5.0 | Datasource plugins. |
+| 1.10.0 | 0.6.0 | Trigger plugins. |
+| 1.11.0 | 0.7.0 | Multimodal reranking and embeddings. |
+| 1.14.0 | 0.8.1 | Dependency and project structure cleanup. |
+| 1.14.2 | 0.9.0 | LLM polling invocations. |
+| 1.16.0 | 0.10.0 | Read `app_id` through `get_current_session()` during app LLM invocations. |
+| 1.16.1 | 0.10.0 | `multiple: true` for tool `select` and `dynamic-select` parameters; requires plugin daemon 0.5.0 or later. |
+| Pending | 0.11.0 (unreleased) | Tool parameter `reset_on_change` declarations; requires plugin daemon 0.6.11 or later and the pending [Dify integration](https://github.com/langgenius/dify/pull/43040). |
+| Pending | 0.11.0 (unreleased) | Optional `OnlineDriveFile.remote_metadata`; requires plugin daemon 0.6.11 or later, with Dify browse and change-detection support still pending. |
+
+## License
+
+[Apache License 2.0](LICENSE).
