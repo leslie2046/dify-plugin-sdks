@@ -95,6 +95,13 @@ Protecting errors raised during Endpoint streaming also requires the [daemon HTT
 With that fix, a stream that fails after headers are sent is interrupted, so clients must handle response-body read errors.
 Upgrade the daemon first, then rebuild and deploy plugins with the updated SDK.
 
+## Agent Token Estimates
+
+In SDK 0.11.0 (unreleased), agent token estimates include text blocks as well as string content and treat special-token spellings such as `<|endoftext|>` as ordinary text.
+Message metadata and non-text payloads are excluded.
+Counting previously ignored text can reduce the output budget in strategies that call `recalc_llm_max_tokens`, including Function Calling and ReAct.
+The GPT-2 estimate remains approximate: budget adjustment retains a minimum of 16 output tokens and lets the provider decide whether the prompt fits.
+
 ## Manifest Version Reference
 
 The SDK dependency version and your plugin's top-level `version` in `manifest.yaml` are separate from these compatibility fields:
